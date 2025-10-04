@@ -12,6 +12,6 @@ A single or batch images file(s) upscaler using ONNX models
 
 # Example of run
 1. Command to upscale a single file
-`upscale.exe input.jpg output.jpg`
+`upscale_npu.exe input.jpg output.jpg`
 2. Command to upscale batch files in a folder
-`upscale.exe path_to_folder\folder path_to_folder\output`
+`upscale_npu.exe path_to_folder\folder path_to_folder\output`
