@@ -1,5 +1,5 @@
 # Upscale_NPU
-A single or batch images file(s) upscaler using ONNX models
+A single or batch images file(s) upscaler using swin2SR ONNX models
 
 # Sample
 <img width="1620" height="1000" alt="image" src="https://github.com/user-attachments/assets/debacd02-31f5-44e1-bc22-6de8d9e4426b" />
