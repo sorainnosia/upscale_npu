@@ -2,6 +2,7 @@
 A single or batch images file(s) upscaler using swin2SR ONNX models
 
 # Sample
+Using `swin2SR-realworld-sr-x4-64-bsrgan-psnr`
 <img width="1620" height="1000" alt="image" src="https://github.com/user-attachments/assets/debacd02-31f5-44e1-bc22-6de8d9e4426b" />
 
 # Build on Windows
