@@ -21,14 +21,16 @@ use std::time::Instant;
 fn main() -> Result<()> {
     ort::init().commit()?;
 
-    // All available Swin2SR models
+    // All available super-resolution models
     let models = vec![
+        // === Swin2SR Models (Latest) ===
         ModelInfo {
             name: "swin2SR-realworld-sr-x4-64-bsrgan-psnr",
             url: "https://huggingface.co/Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr/resolve/main/onnx/model.onnx",
             scale: 4,
             window_size: 8,
             description: "Real-world photos (4x) - Best overall quality",
+            category: "Swin2SR",
         },
         ModelInfo {
             name: "swin2SR-classical-sr-x4-64",
@@ -36,6 +38,7 @@ fn main() -> Result<()> {
             scale: 4,
             window_size: 8,
             description: "Clean images (4x) - High quality",
+            category: "Swin2SR",
         },
         ModelInfo {
             name: "swin2SR-lightweight-x2-64",
@@ -43,6 +46,7 @@ fn main() -> Result<()> {
             scale: 2,
             window_size: 8,
             description: "Lightweight (2x) - Fastest",
+            category: "Swin2SR",
         },
         ModelInfo {
             name: "swin2SR-compressed-sr-x4-48",
@@ -50,12 +54,94 @@ fn main() -> Result<()> {
             scale: 4,
             window_size: 8,
             description: "Compressed/JPEG images (4x)",
+            category: "Swin2SR",
+        },
+        
+        // === APISR Models (High Quality GAN-based) ===
+        ModelInfo {
+            name: "2x_APISR_RRDB_GAN_generator",
+            url: "https://huggingface.co/Xenova/2x_APISR_RRDB_GAN_generator-onnx/resolve/main/onnx/model.onnx",
+            scale: 2,
+            window_size: 1, // No window requirement
+            description: "APISR GAN 2x - Excellent for anime/illustrations",
+            category: "APISR",
+        },
+        ModelInfo {
+            name: "4x_APISR_GRL_GAN_generator",
+            url: "https://huggingface.co/Xenova/4x_APISR_GRL_GAN_generator-onnx/resolve/main/onnx/model.onnx",
+            scale: 4,
+            window_size: 1, // No window requirement
+            description: "APISR GAN 4x - High quality for anime/illustrations",
+            category: "APISR",
+        },
+        /*
+        // === RealESRGAN Models ===
+        ModelInfo {
+            name: "Real-ESRGAN-x4plus",
+            url: "https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus.onnx",
+            scale: 4,
+            window_size: 1, // No window requirement
+            description: "RealESRGAN 4x - General purpose, great quality",
+            category: "RealESRGAN",
+        },
+        ModelInfo {
+            name: "Real-ESRGAN-General-x4v3",
+            url: "https://huggingface.co/qualcomm/Real-ESRGAN-General-x4v3/resolve/main/Real-ESRGAN-General-x4v3.onnx",
+            scale: 4,
+            window_size: 1,
+            description: "RealESRGAN v3 (4x) - Improved general quality",
+            category: "RealESRGAN",
+        },
+        ModelInfo {
+            name: "lightweight-real-ESRGAN-anime",
+            url: "https://huggingface.co/xiongjie/lightweight-real-ESRGAN-anime/resolve/main/model.onnx",
+            scale: 4,
+            window_size: 1,
+            description: "Lightweight anime upscaler (4x) - Very fast",
+            category: "RealESRGAN",
+        },
+        */
+        // === SwinIR Models (Earlier version) ===
+        ModelInfo {
+            name: "SwinIR-realworld-x4",
+            url: "https://huggingface.co/rocca/swin-ir-onnx/resolve/main/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.onnx",
+            scale: 4,
+            window_size: 8,
+            description: "SwinIR real-world (4x) - Good for degraded images",
+            category: "SwinIR",
         },
     ];
 
-    println!("🎨 Swin2SR Image Upscaler\n");
+    println!("🎨 Enhanced Super-Resolution Image Upscaler\n");
     
     let args: Vec<String> = std::env::args().collect();
+    
+    // Model selection
+    let selected_model_idx = if args.len() > 3 {
+        args[3].parse::<usize>().unwrap_or(0).min(models.len() - 1)
+    } else {
+        // Display available models
+        println!("📋 Available Models:\n");
+        
+        let mut current_category = "";
+        for (idx, model) in models.iter().enumerate() {
+            if model.category != current_category {
+                println!("\n{}", model.category);
+                println!("{}", "=".repeat(40));
+                current_category = model.category;
+            }
+            println!("[{}] {} - {}", idx, model.name, model.description);
+        }
+        
+        println!("\n{}", "=".repeat(60));
+        println!("Select model number (default: 0): ");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        input.trim().parse::<usize>().unwrap_or(0).min(models.len() - 1)
+    };
+    
+    let model = &models[selected_model_idx];
+    println!("\n✨ Using: {} ({}x upscale)\n", model.name, model.scale);
     
     // Get input path from args or prompt
     let input_path = if args.len() > 1 {
@@ -80,13 +166,10 @@ fn main() -> Result<()> {
     let input_metadata = std::fs::metadata(&input_path)
         .context("Failed to read input path. Please check if it exists.")?;
     
-    let model = &models[0];
-    println!("\nUsing: {} (Model #1)\n", model.name);
-    
     // Check if input is a file or directory
     if input_metadata.is_file() {
         // Single file mode
-        println!("🔍 Processing single file...\n");
+        println!("📄 Processing single file...\n");
         
         let img = image::open(&input_path)
             .context("Failed to load input image")?;
@@ -103,7 +186,7 @@ fn main() -> Result<()> {
         println!("Saved to: {}", output_path);
     } else {
         // Batch folder mode
-        println!("🔍 Processing folder...\n");
+        println!("📁 Processing folder...\n");
         
         // Create output folder if it doesn't exist
         std::fs::create_dir_all(&output_path)
@@ -151,7 +234,7 @@ fn main() -> Result<()> {
                     let output_filename = img_path.file_stem()
                         .and_then(|n| n.to_str())
                         .unwrap_or("output");
-                    let output_file_path = format!("{}/{}_upscaled.png", output_path, output_filename);
+                    let output_file_path = format!("{}/{}_{}x.png", output_path, output_filename, model.scale);
                     
                     match process_with_model_to_path(model, &img, &output_file_path) {
                         Ok(stats) => {
@@ -192,6 +275,7 @@ struct ModelInfo {
     scale: u32,
     window_size: u32,
     description: &'static str,
+    category: &'static str,
 }
 
 struct ProcessStats {
@@ -207,7 +291,7 @@ fn process_with_model_to_path(model: &ModelInfo, img: &DynamicImage, output_file
     let start = Instant::now();
     
     // Download model if needed
-    let model_path = format!("{}.onnx", model.name);
+    let model_path = format!("./models/{}.onnx", model.name);
     if !Path::new(&model_path).exists() {
         println!("  📥 Downloading {}...", model.name);
         download_model(model.url, &model_path)?;
@@ -216,7 +300,7 @@ fn process_with_model_to_path(model: &ModelInfo, img: &DynamicImage, output_file
     // Load session (cache this for better performance in batch processing)
     let mut session = Session::builder()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
-        // Uncomment for AMD Ryzen NPU:
+        // Uncomment for AMD Ryzen NPU or DirectML support:
          .with_execution_providers([
              ort::execution_providers::DirectMLExecutionProvider::default().build()
          ])?
@@ -239,9 +323,13 @@ fn process_with_model_to_path(model: &ModelInfo, img: &DynamicImage, output_file
         img.clone()
     };
 
-    // Pad image to be divisible by window_size
+    // Pad image to be divisible by window_size (if model requires it)
     let (padded_img, (input_width, input_height), (pad_right, pad_bottom)) = 
-        pad_to_multiple(&img, model.window_size)?;
+        if model.window_size > 1 {
+            pad_to_multiple(&img, model.window_size)?
+        } else {
+            (img.clone(), img.dimensions(), (0, 0))
+        };
 
     // Preprocess
     let input_tensor = preprocess_image(&padded_img)?;
@@ -332,6 +420,7 @@ fn pad_to_multiple(img: &DynamicImage, multiple: u32) -> Result<(DynamicImage, (
 }
 
 fn download_model(url: &str, path: &str) -> Result<()> {
+	std::fs::create_dir_all("./models");
     let response = reqwest::blocking::get(url)?;
     let bytes = response.bytes()?;
     std::fs::write(path, bytes)?;
